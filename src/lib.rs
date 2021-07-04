@@ -4,6 +4,7 @@
     entry_insert,
     generic_associated_types,
     linked_list_cursors,
+    map_first_last,
     never_type,
     type_alias_impl_trait
 )]
