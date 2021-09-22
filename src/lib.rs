@@ -3,6 +3,7 @@
     destructuring_assignment,
     entry_insert,
     generic_associated_types,
+    generic_const_exprs,
     linked_list_cursors,
     never_type,
     step_trait,

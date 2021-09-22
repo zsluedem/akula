@@ -503,13 +503,14 @@ impl<A, B, const A_LEN: usize, const B_LEN: usize> TableEncode for (A, B)
 where
     A: TableObject<Encoded = [u8; A_LEN]>,
     B: TableObject<Encoded = [u8; B_LEN]>,
+    [u8; A_LEN + B_LEN]: AsRef<[u8]>,
 {
-    type Encoded = VariableVec<256>;
+    type Encoded = [u8; A_LEN + B_LEN];
 
     fn encode(self) -> Self::Encoded {
-        let mut v = Self::Encoded::default();
-        v.try_extend_from_slice(&self.0.encode()).unwrap();
-        v.try_extend_from_slice(&self.1.encode()).unwrap();
+        let mut v = [0; A_LEN + B_LEN];
+        v[..A_LEN].copy_from_slice(&self.0.encode());
+        v[A_LEN..].copy_from_slice(&self.1.encode());
         v
     }
 }
