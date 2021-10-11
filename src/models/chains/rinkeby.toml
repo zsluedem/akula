@@ -55,29 +55,35 @@ network_id = "0x4"
 gas_limit = "0x47b760"
 timestamp = "0x58ee40ba"
 
-[precompiles.0x0.0x0000000000000000000000000000000000000001]
+[contracts.0x0.0x0000000000000000000000000000000000000001]
+kind = "precompile"
 name = "ecrecover"
 pricing = { formula = "linear", params = { base = 3000, word = 0 } }
 
 # EIP 1108 transition at block 5_435_345 (0x52efd1)
-[precompiles.0xfcc25.0x0000000000000000000000000000000000000005]
+[contracts.0xfcc25.0x0000000000000000000000000000000000000005]
+kind = "precompile"
 name = "modexp"
 pricing = { formula = "modexp", params = { divisor = 20 } }
 
-[precompiles.0xfcc25.0x0000000000000000000000000000000000000006]
+[contracts.0xfcc25.0x0000000000000000000000000000000000000006]
+kind = "precompile"
 name = "alt_bn128_add"
 pricing = { formula = "alt_bn128_const_operations", params = { price = 500 } }
 
-[precompiles.0xfcc25.0x0000000000000000000000000000000000000008]
+[contracts.0xfcc25.0x0000000000000000000000000000000000000008]
+kind = "precompile"
 name = "alt_bn128_pairing"
 pricing = { formula = "alt_bn128_pairing", params = { base = 100000, pair = 80000 } }
 
 # EIP 1108 transition at block 5_435_345 (0x52efd1)        
-[precompiles.0x52efd1.0x0000000000000000000000000000000000000008]
+[contracts.0x52efd1.0x0000000000000000000000000000000000000008]
+kind = "precompile"
 name = "alt_bn128_pairing"
 pricing = { formula = "alt_bn128_pairing", params = { base = 45000, pair = 34000 } }
 
-[precompiles.0x52efd1.0x0000000000000000000000000000000000000009]
+[contracts.0x52efd1.0x0000000000000000000000000000000000000009]
+kind = "precompile"
 name = "blake2_f"
 pricing = { formula = "blake2_f", params = { gas_per_round = 1 } }
 

@@ -1,7 +1,6 @@
+use ethereum_types::*;
+use serde::*;
 use std::{collections::HashMap, time::Duration};
-
-use ethereum_types::{H160, H256, U256, U64};
-use serde::{de, Deserialize};
 
 type NodeUrl = String;
 
@@ -14,8 +13,8 @@ struct ChainSpec {
     hardforks: HardForks,
     params: Params,
     genesis: Genesis,
-    precompiles: HashMap<U64, HashMap<H160, Precompiles>>,
-    balances: HashMap<H160, U256>,
+    contracts: HashMap<U64, HashMap<Address, Contract>>,
+    balances: HashMap<Address, U256>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -110,9 +109,10 @@ struct Genesis {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
-struct Precompiles {
-    name: String,
-    pricing: Pricing,
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum Contract {
+    Contract,
+    Precompile { name: String, pricing: Pricing },
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -171,7 +171,7 @@ mod tests {
         let chain_spec = toml::from_str::<ChainSpec>(include_str!("chains/rinkeby.toml")).unwrap();
         let precompiles_0 = vec![(
             hex!("0000000000000000000000000000000000000001").into(),
-            Precompiles {
+            Contract::Precompile {
                 name: "ecrecover".into(),
                 pricing: Pricing {
                     formula: "linear".into(),
@@ -188,7 +188,7 @@ mod tests {
         let precompiles_0xfcc25 = vec![
             (
                 hex!("0000000000000000000000000000000000000005").into(),
-                Precompiles {
+                Contract::Precompile {
                     name: "modexp".into(),
                     pricing: Pricing {
                         formula: "modexp".into(),
@@ -198,7 +198,7 @@ mod tests {
             ),
             (
                 hex!("0000000000000000000000000000000000000006").into(),
-                Precompiles {
+                Contract::Precompile {
                     name: "alt_bn128_add".into(),
                     pricing: Pricing {
                         formula: "alt_bn128_const_operations".into(),
@@ -208,7 +208,7 @@ mod tests {
             ),
             (
                 hex!("0000000000000000000000000000000000000008").into(),
-                Precompiles {
+                Contract::Precompile {
                     name: "alt_bn128_pairing".into(),
                     pricing: Pricing {
                         formula: "alt_bn128_pairing".into(),
@@ -226,7 +226,7 @@ mod tests {
         let precompiles_0x52efd1 = vec![
             (
                 hex!("0000000000000000000000000000000000000008").into(),
-                Precompiles {
+                Contract::Precompile {
                     name: "alt_bn128_pairing".into(),
                     pricing: Pricing {
                         formula: "alt_bn128_pairing".into(),
@@ -239,7 +239,7 @@ mod tests {
             ),
             (
                 hex!("0000000000000000000000000000000000000009").into(),
-                Precompiles {
+                Contract::Precompile {
                     name: "blake2_f".into(),
                     pricing: Pricing {
                         formula: "blake2_f".into(),
@@ -283,7 +283,7 @@ mod tests {
                     params: Params { account_start_nonce: 0x0, chain_id: 0x4, gas_limit_bound_divisor: 0x400, max_code_size: 0x6000, maximum_extra_data_size: 0xffff, min_gas_limit: 0x1388, network_id: 0x4 },
                     genesis: Genesis { gas_limit: 0x47b760, timestamp: 0x58ee40ba
                 },
-                precompiles: vec![(0, precompiles_0), (0xfcc25, precompiles_0xfcc25), (0x52efd1, precompiles_0x52efd1)].into_iter().map(|(b, set)| (b.into(), set)).collect(),
+                contracts: vec![(0, precompiles_0), (0xfcc25, precompiles_0xfcc25), (0x52efd1, precompiles_0x52efd1)].into_iter().map(|(b, set)| (b.into(), set)).collect(),
                 balances: vec![
                     (hex!("0000000000000000000000000000000000000000").into(), "0x1".into()),
                     (hex!("31b98d14007bdee637298086988a0bbd31184523").into(), "0x200000000000000000000000000000000000000000000000000000000000000".into())
