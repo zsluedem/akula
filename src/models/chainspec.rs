@@ -1,6 +1,12 @@
+use super::BlockNumber;
+use crate::util::*;
+use bytes::Bytes;
 use ethereum_types::*;
 use serde::*;
-use std::{collections::HashMap, time::Duration};
+use std::{
+    collections::{BTreeMap, HashMap},
+    time::Duration,
+};
 
 type NodeUrl = String;
 
@@ -10,125 +16,214 @@ struct ChainSpec {
     data_dir: String,
     bootnodes: Vec<NodeUrl>,
     engine: Engine,
-    hardforks: HardForks,
+    upgrades: Upgrades,
     params: Params,
     genesis: Genesis,
-    contracts: HashMap<U64, HashMap<Address, Contract>>,
-    balances: HashMap<Address, U256>,
+    contracts: HashMap<BlockNumber, HashMap<Address, Contract>>,
+    balances: HashMap<BlockNumber, HashMap<Address, U256>>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
-struct Engine {
-    name: String,
-    params: EngineParams,
+enum Engine {
+    Clique {
+        #[serde(deserialize_with = "deserialize_period_as_duration")]
+        period: Duration,
+        epoch: u64,
+        genesis: CliqueGenesis,
+    },
+    Ethash {
+        duration_limit: u64,
+        block_reward: BTreeMap<BlockNumber, U256>,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            with = "::serde_with::rust::unwrap_or_skip"
+        )]
+        homestead_formula: Option<BlockNumber>,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            with = "::serde_with::rust::unwrap_or_skip"
+        )]
+        byzantium_adj_factor: Option<BlockNumber>,
+        difficulty_bomb_delays: BTreeMap<BlockNumber, BlockNumber>,
+        genesis: EthashGenesis,
+    },
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
-struct EngineParams {
-    #[serde(deserialize_with = "deserialize_period_as_duration")]
-    period: Duration,
-    epoch: u64,
-    genesis: EngineGenesis,
-}
-
-#[derive(Debug, Deserialize, PartialEq)]
-struct EngineGenesis {
+struct CliqueGenesis {
     vanity: H256,
-    signers: Vec<H160>,
+    signers: Vec<Address>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+struct EthashGenesis {
+    nonce: H64,
+    mix_hash: H256,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+struct EnableDisable {
+    enable: BlockNumber,
+    disable: BlockNumber,
 }
 
 // deserialize_str_as_u64
 #[derive(Debug, Deserialize, PartialEq)]
-struct HardForks {
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip140: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip145: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip150: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip155: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip160: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip161abc: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip161d: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip211: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip214: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip658: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip1014: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip1052: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip1283: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip1283_disable: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip1283_reenable: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip1344: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip1706: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip1884: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    eip2028: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    max_code_size: u64,
+struct Upgrades {
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip140: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip145: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip150: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip155: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip160: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip161abc: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip161d: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip211: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip214: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip658: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip1014: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip1052: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip1283: Option<EnableDisable>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip2200: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip1344: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip1706: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip1884: Option<BlockNumber>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    eip2028: Option<BlockNumber>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
 struct Params {
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    account_start_nonce: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
     chain_id: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
     gas_limit_bound_divisor: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    max_code_size: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
+    max_code_size: BTreeMap<BlockNumber, u64>,
     maximum_extra_data_size: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
     min_gas_limit: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
     network_id: u64,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
 struct Genesis {
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
     gas_limit: u64,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
     timestamp: u64,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 enum Contract {
-    Contract,
-    Precompile { name: String, pricing: Pricing },
+    Contract {
+        #[serde(deserialize_with = "deserialize_str_as_bytes")]
+        code: Bytes,
+    },
+    Precompile(Precompile),
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
-struct Pricing {
-    formula: String,
-    params: PricingParams,
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+enum ModExpVersion {
+    ModExp198,
+    ModExp2565,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
-#[serde(untagged)]
-enum PricingParams {
-    ModExp { divisor: u64 },
-    Linear { base: u64, word: u64 },
-    Price { price: u64 },
-    BasePair { base: u64, pair: u64 },
-    GasPerRound { gas_per_round: u64 },
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+enum Precompile {
+    EcRecover { base: u64, word: u64 },
+    Sha256 { base: u64, word: u64 },
+    Ripemd160 { base: u64, word: u64 },
+    Identity { base: u64, word: u64 },
+    ModExp { version: ModExpVersion },
+    AltBn128Add { price: u64 },
+    AltBn128Mul { price: u64 },
+    AltBn128Pairing { base: u64, pair: u64 },
+    Blake2F { gas_per_round: u64 },
 }
 
 struct DeserializePeriodAsDuration;
@@ -140,11 +235,11 @@ impl<'de> de::Visitor<'de> for DeserializePeriodAsDuration {
         formatter.write_str("an u64")
     }
 
-    fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        Ok(Duration::from_millis(v as u64))
+        Ok(Duration::from_millis(v))
     }
 }
 
@@ -165,91 +260,11 @@ where
 mod tests {
     use super::*;
     use hex_literal::hex;
+    use maplit::{btreemap, hashmap};
 
     #[test]
-    fn load_chainspec_struct() {
-        let chain_spec = toml::from_str::<ChainSpec>(include_str!("chains/rinkeby.toml")).unwrap();
-        let precompiles_0 = vec![(
-            hex!("0000000000000000000000000000000000000001").into(),
-            Contract::Precompile {
-                name: "ecrecover".into(),
-                pricing: Pricing {
-                    formula: "linear".into(),
-                    params: PricingParams::Linear {
-                        base: 3000,
-                        word: 0,
-                    },
-                },
-            },
-        )]
-        .into_iter()
-        .collect();
-
-        let precompiles_0xfcc25 = vec![
-            (
-                hex!("0000000000000000000000000000000000000005").into(),
-                Contract::Precompile {
-                    name: "modexp".into(),
-                    pricing: Pricing {
-                        formula: "modexp".into(),
-                        params: PricingParams::ModExp { divisor: 20 },
-                    },
-                },
-            ),
-            (
-                hex!("0000000000000000000000000000000000000006").into(),
-                Contract::Precompile {
-                    name: "alt_bn128_add".into(),
-                    pricing: Pricing {
-                        formula: "alt_bn128_const_operations".into(),
-                        params: PricingParams::Price { price: 500 },
-                    },
-                },
-            ),
-            (
-                hex!("0000000000000000000000000000000000000008").into(),
-                Contract::Precompile {
-                    name: "alt_bn128_pairing".into(),
-                    pricing: Pricing {
-                        formula: "alt_bn128_pairing".into(),
-                        params: PricingParams::BasePair {
-                            base: 100000,
-                            pair: 80000,
-                        },
-                    },
-                },
-            ),
-        ]
-        .into_iter()
-        .collect();
-
-        let precompiles_0x52efd1 = vec![
-            (
-                hex!("0000000000000000000000000000000000000008").into(),
-                Contract::Precompile {
-                    name: "alt_bn128_pairing".into(),
-                    pricing: Pricing {
-                        formula: "alt_bn128_pairing".into(),
-                        params: PricingParams::BasePair {
-                            base: 45_000,
-                            pair: 34_000,
-                        },
-                    },
-                },
-            ),
-            (
-                hex!("0000000000000000000000000000000000000009").into(),
-                Contract::Precompile {
-                    name: "blake2_f".into(),
-                    pricing: Pricing {
-                        formula: "blake2_f".into(),
-                        params: PricingParams::GasPerRound { gas_per_round: 1 },
-                    },
-                },
-            ),
-        ]
-        .into_iter()
-        .collect();
+    fn load_chainspec() {
+        let chain_spec = ron::from_str::<ChainSpec>(include_str!("chains/rinkeby.ron")).unwrap();
 
         assert_eq!(
             ChainSpec {
@@ -260,34 +275,113 @@ mod tests {
                     "enode://343149e4feefa15d882d9fe4ac7d88f885bd05ebb735e547f12e12080a9fa07c8014ca6fd7f373123488102fe5e34111f8509cf0b7de3f5b44339c9f25e87cb8@52.3.158.184:30303".into(),
                     "enode://b6b28890b006743680c52e64e0d16db57f28124885595fa03a562be1d2bf0f3a1da297d56b13da25fb992888fd556d4c1a27b1f39d531bde7de1921c90061cc6@159.89.28.211:30303".into(),
                 ],
-                engine: Engine {
-                    name: "clique".into(),
-                    params: EngineParams{
-                        period: Duration::from_millis(15),
-                        epoch: 30_000,
-                        genesis: EngineGenesis {
-                            vanity: hex!("52657370656374206d7920617574686f7269746168207e452e436172746d616e").into() , 
-                        signers:
-                            vec![
-                                hex!("42eb768f2244c8811c63729a21a3569731535f06").into(),
-                                hex!("7ffc57839b00206d1ad20c69a1981b489f772031").into(),
-                                hex!("b279182d99e65703f0076e4812653aab85fca0f0").into(),
-                            ],
-                        }
+                engine: Engine::Clique {
+                    period: Duration::from_millis(15),
+                    epoch: 30_000,
+                    genesis: CliqueGenesis {
+                        vanity: hex!("52657370656374206d7920617574686f7269746168207e452e436172746d616e").into(), 
+                        signers: vec![
+                            hex!("42eb768f2244c8811c63729a21a3569731535f06").into(),
+                            hex!("7ffc57839b00206d1ad20c69a1981b489f772031").into(),
+                            hex!("b279182d99e65703f0076e4812653aab85fca0f0").into(),
+                        ],
                     }
                 },
-                hardforks: HardForks {
-                    eip140: 0xfcc25,
-                    eip145: 0x37db77,
-                    eip150: 0x2, eip155: 0x3, eip160: 0x0, eip161abc: 0x0, eip161d: 0x0, eip211: 0xfcc25, eip214: 0xfcc25, eip658: 0xfcc25, eip1014: 0x37db77, eip1052: 0x37db77, eip1283: 0x37db77, eip1283_disable: 0x41efd2, eip1283_reenable: 0x52efd1, eip1344: 0x52efd1, eip1706: 0x52efd1, eip1884: 0x52efd1, eip2028: 0x52efd1, max_code_size: 0x0 },
-                    params: Params { account_start_nonce: 0x0, chain_id: 0x4, gas_limit_bound_divisor: 0x400, max_code_size: 0x6000, maximum_extra_data_size: 0xffff, min_gas_limit: 0x1388, network_id: 0x4 },
-                    genesis: Genesis { gas_limit: 0x47b760, timestamp: 0x58ee40ba
+                upgrades: Upgrades {
+                    eip140: Some(1035301.into()),
+                    eip145: Some(3660663.into()),
+                    eip150: Some(2.into()),
+                    eip155: Some(3.into()),
+                    eip160: Some(0.into()),
+                    eip161abc: Some(0.into()),
+                    eip161d: Some(0.into()),
+                    eip211: Some(1035301.into()),
+                    eip214: Some(1035301.into()),
+                    eip658: Some(1035301.into()),
+                    eip1014: Some(3660663.into()),
+                    eip1052: Some(3660663.into()),
+                    eip1283: Some(EnableDisable {
+                        enable: 3660663.into(),
+                        disable: 4321234.into(),
+                    }),
+                    eip2200: Some(5435345.into()),
+                    eip1344: Some(5435345.into()),
+                    eip1706: Some(5435345.into()),
+                    eip1884: Some(5435345.into()),
+                    eip2028: Some(5435345.into()),
                 },
-                contracts: vec![(0, precompiles_0), (0xfcc25, precompiles_0xfcc25), (0x52efd1, precompiles_0x52efd1)].into_iter().map(|(b, set)| (b.into(), set)).collect(),
-                balances: vec![
-                    (hex!("0000000000000000000000000000000000000000").into(), "0x1".into()),
-                    (hex!("31b98d14007bdee637298086988a0bbd31184523").into(), "0x200000000000000000000000000000000000000000000000000000000000000".into())
-                    ].into_iter().collect(),
+                params: Params {
+                    chain_id: 4,
+                    network_id: 4,
+                    gas_limit_bound_divisor: 1024,
+                    max_code_size: btreemap!{ 0.into() => 24576 },
+                    maximum_extra_data_size: 65535,
+                    min_gas_limit: 5000,
+                },
+                genesis: Genesis {
+                    gas_limit: 0x47b760,
+                    timestamp: 0x58ee40ba,
+                },
+                contracts: hashmap! {
+                    0.into() => hashmap! {
+                        hex!("0000000000000000000000000000000000000001").into() => Contract::Precompile(Precompile::EcRecover {
+                            base: 3000,
+                            word: 0,
+                        }),
+                        hex!("0000000000000000000000000000000000000002").into() => Contract::Precompile(Precompile::Sha256 {
+                            base: 60,
+                            word: 12,
+                        }),
+                        hex!("0000000000000000000000000000000000000003").into() => Contract::Precompile(Precompile::Ripemd160 {
+                            base: 600,
+                            word: 120,
+                        }),
+                        hex!("0000000000000000000000000000000000000004").into() => Contract::Precompile(Precompile::Identity {
+                            base: 15,
+                            word: 3,
+                        }),
+                    },
+                    1035301.into() => hashmap! {
+                        hex!("0000000000000000000000000000000000000005").into() => Contract::Precompile(Precompile::ModExp {
+                            version: ModExpVersion::ModExp198,
+                        }),
+                        hex!("0000000000000000000000000000000000000006").into() => Contract::Precompile(Precompile::AltBn128Add {
+                            price: 500,
+                        }),
+                        hex!("0000000000000000000000000000000000000007").into() => Contract::Precompile(Precompile::AltBn128Mul {
+                            price: 40000,
+                        }),
+                        hex!("0000000000000000000000000000000000000008").into() => Contract::Precompile(Precompile::AltBn128Pairing {
+                            base: 100000,
+                            pair: 80000,
+                        }),
+                    },
+                    5435345.into() => hashmap! {
+                        hex!("0000000000000000000000000000000000000006").into() => Contract::Precompile(Precompile::AltBn128Add {
+                            price: 150,
+                        }),
+                        hex!("0000000000000000000000000000000000000007").into() => Contract::Precompile(Precompile::AltBn128Mul {
+                            price: 6000,
+                        }),
+                        hex!("0000000000000000000000000000000000000008").into() => Contract::Precompile(Precompile::AltBn128Pairing {
+                            base: 45000,
+                            pair: 34000,
+                        }),
+                        hex!("0000000000000000000000000000000000000009").into() => Contract::Precompile(Precompile::Blake2F {
+                            gas_per_round: 1,
+                        }),
+                    },
+                    8290928.into() => hashmap! {
+                        hex!("0000000000000000000000000000000000000005").into() => Contract::Precompile(Precompile::ModExp {
+                            version: ModExpVersion::ModExp2565,
+                        })
+                    }
+                },
+                balances: hashmap! {
+                    0.into() => hashmap! {
+                        hex!("31b98d14007bdee637298086988a0bbd31184523").into() => "0x200000000000000000000000000000000000000000000000000000000000000".into(),
+                    },
+                },
             },
             chain_spec,
         );
