@@ -24,6 +24,11 @@ struct ChainSpec {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+struct DifficultyBomb {
+    delays: BTreeMap<BlockNumber, BlockNumber>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
 enum Engine {
     Clique {
         #[serde(deserialize_with = "deserialize_period_as_duration")]
@@ -46,7 +51,12 @@ enum Engine {
             with = "::serde_with::rust::unwrap_or_skip"
         )]
         byzantium_adj_factor: Option<BlockNumber>,
-        difficulty_bomb_delays: BTreeMap<BlockNumber, BlockNumber>,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            with = "::serde_with::rust::unwrap_or_skip"
+        )]
+        difficulty_bomb: Option<DifficultyBomb>,
         genesis: EthashGenesis,
     },
 }
