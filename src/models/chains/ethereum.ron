@@ -1,8 +1,6 @@
 (
     name: "Ethereum",
     engine: Ethash(
-        minimum_difficulty: 131072,
-        difficultyBoundDivisor: 2048,
         duration_limit: 13,
         block_reward: {
             0: "0x4563918244f40000",
@@ -23,44 +21,21 @@
         )
     ),
     upgrades: (
-        eip150: 2463000,
-        eip160: 2675000,
-        eip161abc: 2675000,
-        eip161d: 2675000,
-        eip155: 2675000,
-        eip140: 4370000,
-        eip211: 4370000,
-        eip214: 4370000,
-        eip658: 4370000,
-        eip145: 7280000,
-        eip1014: 7280000,
-        eip1052: 7280000,
-        eip1283: 9069000,
-        eip1344: 9069000,
-        eip1706: 9069000,
-        eip1884: 9069000,
-        eip2028: 9069000,
-        eip2929: 12244000,
-        eip2930: 12244000,
-        eip3198: 12965000,
-        eip3541: 12965000,
-        eip3529: 12965000,
-        eip1559: {
-            12965000: (
-                base_fee_max_change_denominator: 8,
-                elasticity_multiplier: 2,
-                base_fee_initial_value: "0x3b9aca00",
-            ),
-        },
+        homestead: 1150000,
+        tangerine: 2463000,
+        spurious: 2675000,
+        byzantium: 4370000,
+        constantinople: 7280000,
+        petersburg: 7280000,
+        istanbul: 9069000,
+        berlin: 12244000,
+        london: 12965000,
     ),
     params: (
         chain_id: 1,
         network_id: 1,
         maximum_extra_data_size: 32,
         min_gas_limit: 5000,
-        max_code_size: {
-            2675000: 24576,
-        },
     ),
     genesis: (
         difficulty: "0x400000000",

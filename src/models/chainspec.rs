@@ -77,116 +77,60 @@ struct Upgrades {
         skip_serializing_if = "Option::is_none",
         with = "::serde_with::rust::unwrap_or_skip"
     )]
-    eip140: Option<BlockNumber>,
+    homestead: Option<BlockNumber>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         with = "::serde_with::rust::unwrap_or_skip"
     )]
-    eip145: Option<BlockNumber>,
+    tangerine: Option<BlockNumber>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         with = "::serde_with::rust::unwrap_or_skip"
     )]
-    eip150: Option<BlockNumber>,
+    spurious: Option<BlockNumber>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         with = "::serde_with::rust::unwrap_or_skip"
     )]
-    eip155: Option<BlockNumber>,
+    byzantium: Option<BlockNumber>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         with = "::serde_with::rust::unwrap_or_skip"
     )]
-    eip160: Option<BlockNumber>,
+    constantinople: Option<BlockNumber>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         with = "::serde_with::rust::unwrap_or_skip"
     )]
-    eip161abc: Option<BlockNumber>,
+    petersburg: Option<BlockNumber>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         with = "::serde_with::rust::unwrap_or_skip"
     )]
-    eip161d: Option<BlockNumber>,
+    istanbul: Option<BlockNumber>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         with = "::serde_with::rust::unwrap_or_skip"
     )]
-    eip211: Option<BlockNumber>,
+    berlin: Option<BlockNumber>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         with = "::serde_with::rust::unwrap_or_skip"
     )]
-    eip214: Option<BlockNumber>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "::serde_with::rust::unwrap_or_skip"
-    )]
-    eip658: Option<BlockNumber>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "::serde_with::rust::unwrap_or_skip"
-    )]
-    eip1014: Option<BlockNumber>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "::serde_with::rust::unwrap_or_skip"
-    )]
-    eip1052: Option<BlockNumber>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "::serde_with::rust::unwrap_or_skip"
-    )]
-    eip1283: Option<EnableDisable>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "::serde_with::rust::unwrap_or_skip"
-    )]
-    eip2200: Option<BlockNumber>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "::serde_with::rust::unwrap_or_skip"
-    )]
-    eip1344: Option<BlockNumber>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "::serde_with::rust::unwrap_or_skip"
-    )]
-    eip1706: Option<BlockNumber>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "::serde_with::rust::unwrap_or_skip"
-    )]
-    eip1884: Option<BlockNumber>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "::serde_with::rust::unwrap_or_skip"
-    )]
-    eip2028: Option<BlockNumber>,
+    london: Option<BlockNumber>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
 struct Params {
     chain_id: u64,
-    gas_limit_bound_divisor: u64,
-    max_code_size: BTreeMap<BlockNumber, u64>,
     maximum_extra_data_size: u64,
     min_gas_limit: u64,
     network_id: u64,
@@ -260,7 +204,7 @@ where
 mod tests {
     use super::*;
     use hex_literal::hex;
-    use maplit::{btreemap, hashmap};
+    use maplit::hashmap;
 
     #[test]
     fn load_chainspec() {
@@ -288,33 +232,19 @@ mod tests {
                     }
                 },
                 upgrades: Upgrades {
-                    eip140: Some(1035301.into()),
-                    eip145: Some(3660663.into()),
-                    eip150: Some(2.into()),
-                    eip155: Some(3.into()),
-                    eip160: Some(0.into()),
-                    eip161abc: Some(0.into()),
-                    eip161d: Some(0.into()),
-                    eip211: Some(1035301.into()),
-                    eip214: Some(1035301.into()),
-                    eip658: Some(1035301.into()),
-                    eip1014: Some(3660663.into()),
-                    eip1052: Some(3660663.into()),
-                    eip1283: Some(EnableDisable {
-                        enable: 3660663.into(),
-                        disable: 4321234.into(),
-                    }),
-                    eip2200: Some(5435345.into()),
-                    eip1344: Some(5435345.into()),
-                    eip1706: Some(5435345.into()),
-                    eip1884: Some(5435345.into()),
-                    eip2028: Some(5435345.into()),
+                    homestead: Some(1150000.into()),
+                    tangerine: Some(2463000.into()),
+                    spurious: Some(2675000.into()),
+                    byzantium: Some(4370000.into()),
+                    constantinople: Some(7280000.into()),
+                    petersburg: Some(7280000.into()),
+                    istanbul: Some(9069000.into()),
+                    berlin: Some(12244000.into()),
+                    london: Some(12965000.into()),
                 },
                 params: Params {
                     chain_id: 4,
                     network_id: 4,
-                    gas_limit_bound_divisor: 1024,
-                    max_code_size: btreemap!{ 0.into() => 24576 },
                     maximum_extra_data_size: 65535,
                     min_gas_limit: 5000,
                 },
