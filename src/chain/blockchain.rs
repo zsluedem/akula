@@ -13,7 +13,7 @@ use std::{collections::HashMap, convert::TryFrom};
 #[derive(Debug)]
 pub struct Blockchain<'state> {
     state: &'state mut InMemoryState,
-    config: ChainConfig,
+    config: ChainSpec,
     bad_blocks: HashMap<H256, ValidationError>,
     receipts: Vec<Receipt>,
 }
@@ -21,7 +21,7 @@ pub struct Blockchain<'state> {
 impl<'state> Blockchain<'state> {
     pub async fn new(
         state: &'state mut InMemoryState,
-        config: ChainConfig,
+        config: ChainSpec,
         genesis_block: Block,
     ) -> anyhow::Result<Blockchain<'state>> {
         let hash = genesis_block.header.hash();
@@ -46,7 +46,13 @@ impl<'state> Blockchain<'state> {
     where
         C: Consensus,
     {
-        pre_validate_block(consensus, &block, self.state, &self.config).await?;
+        pre_validate_block(
+            consensus,
+            &block,
+            self.state,
+            &self.config.collect_block_spec(block.header.number),
+        )
+        .await?;
 
         let hash = block.header.hash();
         if let Some(error) = self.bad_blocks.get(&hash) {

@@ -331,26 +331,6 @@ bincode_table_object!(Transaction);
 bincode_table_object!(Vec<crate::models::Receipt>);
 bincode_table_object!(Vec<crate::models::Log>);
 
-macro_rules! json_table_object {
-    ($ty:ident) => {
-        impl TableEncode for $ty {
-            type Encoded = Vec<u8>;
-
-            fn encode(self) -> Self::Encoded {
-                serde_json::to_vec(&self).unwrap()
-            }
-        }
-
-        impl TableDecode for $ty {
-            fn decode(b: &[u8]) -> anyhow::Result<Self> {
-                Ok(serde_json::from_slice(b)?)
-            }
-        }
-    };
-}
-
-json_table_object!(ChainConfig);
-
 impl TableEncode for Address {
     type Encoded = [u8; ADDRESS_LENGTH];
 
@@ -962,7 +942,6 @@ decl_table!(CallTraceSet => BlockNumber => CallTraceSetEntry);
 decl_table!(CallFromIndex => Vec<u8> => RoaringTreemap);
 decl_table!(CallToIndex => Vec<u8> => RoaringTreemap);
 decl_table!(BlockTransactionLookup => H256 => TruncateStart<BlockNumber>);
-decl_table!(Config => H256 => ChainConfig);
 decl_table!(SyncStage => StageId => BlockNumber);
 decl_table!(TxSender => TxIndex => Address);
 decl_table!(LastBlock => Vec<u8> => Vec<u8>);
@@ -1015,7 +994,6 @@ pub static CHAINDATA_TABLES: Lazy<Arc<HashMap<&'static str, TableInfo>>> = Lazy:
         CallFromIndex::const_db_name() => TableInfo::default(),
         CallToIndex::const_db_name() => TableInfo::default(),
         BlockTransactionLookup::const_db_name() => TableInfo::default(),
-        Config::const_db_name() => TableInfo::default(),
         SyncStage::const_db_name() => TableInfo::default(),
         TxSender::const_db_name() => TableInfo::default(),
         LastBlock::const_db_name() => TableInfo::default(),
