@@ -18,14 +18,14 @@ pub struct BlockSpec {
     pub revision: Revision,
     pub active_transitions: HashSet<Revision>,
     pub params: Params,
-    pub system_contracts: HashMap<Address, Contract>,
-    pub balance_transfers: HashMap<Address, U256>,
+    pub system_contract_changes: HashMap<Address, Contract>,
+    pub balance_changes: HashMap<Address, U256>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct ChainSpec {
     pub name: String,
-    pub engine: Engine,
+    pub engine: ConsensusParams,
     #[serde(default)]
     pub upgrades: Upgrades,
     pub params: Params,
@@ -38,7 +38,7 @@ impl ChainSpec {
     pub fn collect_block_spec(&self, block_number: impl Into<BlockNumber>) -> BlockSpec {
         let block_number = block_number.into();
         let mut revision = Revision::Frontier;
-        let mut is_transition_block = false;
+        let mut active_transitions = HashSet::new();
         for (fork, r) in [
             (self.upgrades.london, Revision::London),
             (self.upgrades.berlin, Revision::Berlin),
@@ -52,8 +52,12 @@ impl ChainSpec {
         ] {
             if let Some(fork_block) = fork {
                 if block_number >= fork_block {
-                    is_transition_block = block_number == fork_block;
-                    revision = r;
+                    if block_number == fork_block {
+                        active_transitions.insert(r);
+                    }
+                    if revision == Revision::Frontier {
+                        revision = r;
+                    }
 
                     break;
                 }
@@ -63,12 +67,11 @@ impl ChainSpec {
         BlockSpec {
             engine: self.engine.collect_params_for_block(block_number),
             revision,
-            is_transition_block,
+            active_transitions,
             params: self.params.clone(),
-            system_contracts: self
-                .contracts
-                .iter()
-                .fold(HashMap::new(), |acc, (bn, contracts)| {
+            system_contract_changes: self.contracts.iter().fold(
+                HashMap::new(),
+                |acc, (bn, contracts)| {
                     if block_number >= *bn {
                         for (addr, contract) in contracts {
                             acc.insert(*addr, *contract);
@@ -76,8 +79,9 @@ impl ChainSpec {
                     }
 
                     acc
-                }),
-            balance_transfers: self
+                },
+            ),
+            balance_changes: self
                 .balances
                 .get(&block_number)
                 .cloned()
@@ -104,7 +108,7 @@ impl ChainSpec {
         .chain(self.balances.keys().copied())
         .collect::<BTreeSet<BlockNumber>>();
 
-        if let Engine::Ethash {
+        if let ConsensusParams::Ethash {
             difficulty_bomb, ..
         } = &self.engine
         {
@@ -148,12 +152,11 @@ pub enum BlockEngineParams {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub enum Engine {
+pub enum ConsensusParams {
     Clique {
         #[serde(deserialize_with = "deserialize_period_as_duration")]
         period: Duration,
         epoch: u64,
-        genesis: CliqueGenesis,
     },
     Ethash {
         duration_limit: u64,
@@ -176,70 +179,8 @@ pub enum Engine {
             with = "::serde_with::rust::unwrap_or_skip"
         )]
         difficulty_bomb: Option<DifficultyBomb>,
-        genesis: EthashGenesis,
     },
     NoProof,
-}
-
-impl Engine {
-    fn collect_params_for_block(&self, block_number: BlockNumber) -> BlockEngineParams {
-        match self {
-            Engine::Clique {
-                period,
-                epoch,
-                genesis,
-            } => BlockEngineParams::Clique {
-                period: *period,
-                epoch: *epoch,
-            },
-            Engine::Ethash {
-                duration_limit,
-                block_reward,
-                homestead_formula,
-                byzantium_adj_factor,
-                difficulty_bomb,
-                genesis,
-            } => BlockEngineParams::Ethash(BlockEthashParams {
-                duration_limit: *duration_limit,
-                block_reward: {
-                    let mut reward = U256::zero();
-
-                    for (after, block_reward_after) in block_reward.iter().rev() {
-                        if block_number >= *after {
-                            reward = *block_reward_after;
-                            break;
-                        }
-                    }
-
-                    reward
-                },
-                homestead_formula: homestead_formula
-                    .map(|after| block_number >= after)
-                    .unwrap_or(false),
-                byzantium_adj_factor: byzantium_adj_factor
-                    .map(|after| block_number >= after)
-                    .unwrap_or(false),
-                difficulty_bomb: difficulty_bomb.map(|difficulty_bomb| {
-                    let mut delay_to = BlockNumber(0);
-                    for (&after, &delay_to_entry) in difficulty_bomb.delays.iter().rev() {
-                        if block_number >= after {
-                            delay_to = delay_to_entry;
-                            break;
-                        }
-                    }
-
-                    BlockDifficultyBomb { delay_to }
-                }),
-            }),
-            Engine::NoProof => todo!(),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct CliqueGenesis {
-    pub vanity: H256,
-    pub signers: Vec<Address>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -316,11 +257,20 @@ pub struct Params {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub enum Seal {
+    Ethash { nonce: H64, mix_hash: H256 },
+    Clique { vanity: H256, signers: Vec<Address> },
+    AuthorityRound { step: usize, signature: H520 },
+    Raw { bytes: Vec<u8> },
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Genesis {
     pub author: Address,
     pub difficulty: U256,
     pub gas_limit: u64,
     pub timestamp: u64,
+    pub seal: Seal,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -394,20 +344,9 @@ mod tests {
         assert_eq!(
             ChainSpec {
                 name: "Rinkeby".into(),
-                engine: Engine::Clique {
+                engine: ConsensusParams::Clique {
                     period: Duration::from_millis(15),
                     epoch: 30_000,
-                    genesis: CliqueGenesis {
-                        vanity: hex!(
-                            "52657370656374206d7920617574686f7269746168207e452e436172746d616e"
-                        )
-                        .into(),
-                        signers: vec![
-                            hex!("42eb768f2244c8811c63729a21a3569731535f06").into(),
-                            hex!("7ffc57839b00206d1ad20c69a1981b489f772031").into(),
-                            hex!("b279182d99e65703f0076e4812653aab85fca0f0").into(),
-                        ],
-                    }
                 },
                 upgrades: Upgrades {
                     homestead: Some(1150000.into()),
@@ -431,6 +370,17 @@ mod tests {
                     difficulty: 0x1.into(),
                     gas_limit: 0x47b760,
                     timestamp: 0x58ee40ba,
+                    seal: Seal::Clique {
+                        vanity: hex!(
+                            "52657370656374206d7920617574686f7269746168207e452e436172746d616e"
+                        )
+                        .into(),
+                        signers: vec![
+                            hex!("42eb768f2244c8811c63729a21a3569731535f06").into(),
+                            hex!("7ffc57839b00206d1ad20c69a1981b489f772031").into(),
+                            hex!("b279182d99e65703f0076e4812653aab85fca0f0").into(),
+                        ],
+                    },
                 },
                 contracts: btreemap! {
                     0.into() => hashmap! {

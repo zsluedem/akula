@@ -1,12 +1,7 @@
 #![allow(clippy::suspicious_else_formatting)]
 use akula::{
-    chain::{
-        blockchain::Blockchain,
-        config::*,
-        consensus::{Consensus, NoProof},
-        difficulty::canonical_difficulty,
-        validity::pre_validate_transaction,
-    },
+    chain::{blockchain::Blockchain, config::*, validity::pre_validate_transaction},
+    consensus::{Consensus, NoProof},
     crypto::keccak256,
     models::*,
     *,
@@ -134,12 +129,15 @@ static NETWORK_CONFIG: Lazy<HashMap<Network, ChainSpec>> = Lazy::new(|| {
         },
         upgrades,
         name: "test",
-        engine: Engine::NoProof,
+        engine: ConsensusParams::NoProof,
         genesis: Genesis {
             author: Default::default(),
             difficulty: Default::default(),
             gas_limit: Default::default(),
             timestamp: Default::default(),
+            seal: Seal::Raw {
+                bytes: Default::default(),
+            },
         },
         contracts: Default::default(),
         balances: Default::default(),
@@ -708,7 +706,7 @@ async fn difficulty_test(
         .map(|hash| hash != EMPTY_LIST_HASH)
         .unwrap_or(false);
 
-    let calculated_difficulty = canonical_difficulty(
+    let calculated_difficulty = akula::consensus::ethash::difficulty::canonical_difficulty(
         testdata.current_block_number,
         testdata.current_timestamp,
         testdata.parent_difficulty.into(),

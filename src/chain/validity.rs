@@ -1,5 +1,5 @@
-use super::{consensus::*, difficulty::*, intrinsic_gas::*, protocol_param::param};
-use crate::{models::*, state::*};
+use super::{intrinsic_gas::*, protocol_param::param};
+use crate::{consensus::*, models::*, state::*};
 use anyhow::Context;
 use async_recursion::*;
 use ethereum_types::*;
@@ -165,7 +165,7 @@ fn expected_base_fee_per_gas(
     config: &BlockSpec,
 ) -> Option<U256> {
     if config.revision >= Revision::London {
-        if config.is_transition_block {
+        if config.active_transitions.contains(&Revision::London) {
             return Some(param::INITIAL_BASE_FEE.into());
         }
 
@@ -240,7 +240,7 @@ async fn validate_block_header<C: Consensus, S: State>(
     }
 
     let mut parent_gas_limit = parent.gas_limit;
-    if config.active_transitions.contains(Revision::London) {
+    if config.active_transitions.contains(&Revision::London) {
         parent_gas_limit = parent.gas_limit * param::ELASTICITY_MULTIPLIER; // EIP-1559
     }
 
@@ -253,19 +253,6 @@ async fn validate_block_header<C: Consensus, S: State>(
         return Err(ValidationError::InvalidGasLimit.into());
     }
 
-    let parent_has_uncles = parent.ommers_hash != EMPTY_LIST_HASH;
-    let difficulty = canonical_difficulty(
-        header.number,
-        header.timestamp,
-        parent.difficulty,
-        parent.timestamp,
-        parent_has_uncles,
-        config,
-    );
-    if difficulty != header.difficulty {
-        return Err(ValidationError::WrongDifficulty.into());
-    }
-
     let expected_base_fee_per_gas = expected_base_fee_per_gas(header, &parent, config);
     if header.base_fee_per_gas != expected_base_fee_per_gas {
         return Err(ValidationError::WrongBaseFee {
@@ -275,7 +262,7 @@ async fn validate_block_header<C: Consensus, S: State>(
         .into());
     }
 
-    consensus.verify_header(header).await?;
+    consensus.verify_header(header, &parent).await?;
 
     Ok(())
 }
@@ -443,10 +430,11 @@ mod tests {
                 access_list: vec![],
             };
 
+            let block_number = 13_500_001;
             let res = pre_validate_transaction(
                 &txn,
-                13_500_001,
-                &*MAINNET_CONFIG,
+                block_number,
+                &MAINNET_CONFIG.collect_block_spec(block_number),
                 Some(base_fee_per_gas.into()),
             );
 

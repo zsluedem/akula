@@ -1,9 +1,7 @@
 use super::validity::ValidationError;
 use crate::{
-    chain::{consensus::Consensus, validity::pre_validate_block},
-    execution::processor::ExecutionProcessor,
-    models::*,
-    state::*,
+    chain::validity::pre_validate_block, consensus::Consensus,
+    execution::processor::ExecutionProcessor, models::*, state::*,
 };
 use anyhow::Context;
 use async_recursion::async_recursion;
