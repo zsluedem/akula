@@ -19,7 +19,7 @@ pub struct Execution {
 
 async fn execute_batch_of_blocks<'db, Tx: MutableTransaction<'db>>(
     tx: &Tx,
-    chain_config: ChainConfig,
+    chain_config: ChainSpec,
     max_block: BlockNumber,
     batch_size: usize,
     starting_block: BlockNumber,
@@ -40,7 +40,8 @@ async fn execute_batch_of_blocks<'db, Tx: MutableTransaction<'db>>(
             .await?
             .ok_or_else(|| anyhow!("Block body not found: {}/{:?}", block_number, block_hash))?;
 
-        let receipts = ExecutionProcessor::new(&mut buffer, &header, &block, &chain_config)
+        let block_spec = chain_config.collect_block_spec(block_number);
+        let receipts = ExecutionProcessor::new(&mut buffer, &header, &block, &block_spec)
             .execute_and_write_block()
             .await?;
 

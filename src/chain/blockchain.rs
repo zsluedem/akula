@@ -144,7 +144,8 @@ impl<'state> Blockchain<'state> {
             ommers: block.ommers.clone(),
         };
 
-        let processor = ExecutionProcessor::new(self.state, &block.header, &body, &self.config);
+        let block_spec = self.config.collect_block_spec(block.header.number);
+        let processor = ExecutionProcessor::new(self.state, &block.header, &body, &block_spec);
 
         let _ = processor.execute_and_write_block().await?;
 

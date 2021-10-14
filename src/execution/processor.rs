@@ -25,7 +25,7 @@ where
     header: &'h PartialHeader,
     block: &'b BlockBodyWithSenders,
     revision: Revision,
-    chain_config: &'c ChainConfig,
+    chain_config: &'c BlockSpec,
     cumulative_gas_used: u64,
 }
 
@@ -37,9 +37,9 @@ where
         state: &'r mut S,
         header: &'h PartialHeader,
         block: &'b BlockBodyWithSenders,
-        chain_config: &'c ChainConfig,
+        chain_config: &'c BlockSpec,
     ) -> Self {
-        let revision = chain_config.revision(header.number);
+        let revision = chain_config.revision;
         Self {
             state: IntraBlockState::new(state),
             header,
@@ -114,7 +114,7 @@ where
         &mut self,
         txn: &TransactionWithSender,
     ) -> anyhow::Result<Receipt> {
-        let rev = self.chain_config.revision(self.header.number);
+        let rev = self.chain_config.revision;
 
         self.state.clear_journal_and_substate();
 
@@ -186,16 +186,8 @@ where
     pub async fn execute_block_no_post_validation(&mut self) -> anyhow::Result<Vec<Receipt>> {
         let mut receipts = Vec::with_capacity(self.block.transactions.len());
 
-        let block_num = self.header.number;
-        if let Some(dao_config) = &self.chain_config.dao_fork {
-            if dao_config.block_number == block_num {
-                dao::transfer_balances(
-                    &mut self.state,
-                    dao_config.beneficiary,
-                    dao_config.drain.iter().copied(),
-                )
-                .await?;
-            }
+        for (&address, &balance) in &self.chain_config.balance_changes {
+            self.state.set_balance(address, balance).await?;
         }
 
         for (i, txn) in self.block.transactions.iter().enumerate() {
@@ -224,7 +216,7 @@ where
         }
 
         let block_num = self.header.number;
-        let rev = self.chain_config.revision(block_num);
+        let rev = self.chain_config.revision;
 
         if rev >= Revision::Byzantium {
             let expected = root_hash(&receipts);

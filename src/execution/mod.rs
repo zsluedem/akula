@@ -8,7 +8,7 @@ pub mod processor;
 
 pub async fn execute_block<S: State>(
     state: &mut S,
-    config: &ChainConfig,
+    config: &BlockSpec,
     header: &PartialHeader,
     block: &BlockBodyWithSenders,
 ) -> anyhow::Result<Vec<Receipt>> {
@@ -136,7 +136,7 @@ mod tests {
 
             execute_block(
                 &mut state,
-                &MAINNET_CONFIG,
+                &MAINNET_CONFIG.collect_block_spec(header.number),
                 &header,
                 &BlockBodyWithSenders {
                     transactions: vec![tx.clone()],
