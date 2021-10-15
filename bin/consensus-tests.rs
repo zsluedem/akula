@@ -129,7 +129,6 @@ static NETWORK_CONFIG: Lazy<HashMap<Network, ChainSpec>> = Lazy::new(|| {
         },
         upgrades,
         name: "test",
-        engine: ConsensusParams::NoProof,
         genesis: Genesis {
             author: Default::default(),
             difficulty: Default::default(),

@@ -1,6 +1,6 @@
-use super::BlockNumber;
-use crate::util::*;
+use crate::{models::*, util::*};
 use bytes::Bytes;
+use derive_more::Deref;
 use ethereum_types::*;
 use evmodin::Revision;
 use serde::*;
@@ -13,19 +13,25 @@ use std::{
 type NodeUrl = String;
 
 #[derive(Debug, PartialEq)]
-pub struct BlockSpec {
-    pub engine: BlockEngineParams,
+pub struct BlockChainSpec {
     pub revision: Revision,
     pub active_transitions: HashSet<Revision>,
     pub params: Params,
-    pub system_contract_changes: HashMap<Address, Contract>,
+    pub system_contracts: HashMap<Address, Contract>,
     pub balance_changes: HashMap<Address, U256>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Deref)]
+pub struct Spec {
+    pub consensus: ConsensusSpec,
+    #[deref]
+    pub chain: ChainSpec,
+    pub bootnodes: Vec<NodeUrl>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct ChainSpec {
     pub name: String,
-    pub engine: ConsensusParams,
     #[serde(default)]
     pub upgrades: Upgrades,
     pub params: Params,
@@ -35,7 +41,7 @@ pub struct ChainSpec {
 }
 
 impl ChainSpec {
-    pub fn collect_block_spec(&self, block_number: impl Into<BlockNumber>) -> BlockSpec {
+    pub fn collect_block_spec(&self, block_number: impl Into<BlockNumber>) -> BlockChainSpec {
         let block_number = block_number.into();
         let mut revision = Revision::Frontier;
         let mut active_transitions = HashSet::new();
@@ -64,18 +70,15 @@ impl ChainSpec {
             }
         }
 
-        BlockSpec {
-            engine: self.engine.collect_params_for_block(block_number),
+        BlockChainSpec {
             revision,
             active_transitions,
             params: self.params.clone(),
-            system_contract_changes: self.contracts.iter().fold(
+            system_contracts: self.contracts.range(..=block_number).fold(
                 HashMap::new(),
-                |acc, (bn, contracts)| {
-                    if block_number >= *bn {
-                        for (addr, contract) in contracts {
-                            acc.insert(*addr, *contract);
-                        }
+                |acc, (_, contracts)| {
+                    for (addr, contract) in contracts {
+                        acc.insert(*addr, *contract);
                     }
 
                     acc
@@ -108,79 +111,10 @@ impl ChainSpec {
         .chain(self.balances.keys().copied())
         .collect::<BTreeSet<BlockNumber>>();
 
-        if let ConsensusParams::Ethash {
-            difficulty_bomb, ..
-        } = &self.engine
-        {
-            if let Some(bomb) = difficulty_bomb {
-                for delay in bomb.delays.keys() {
-                    forks.insert(*delay);
-                }
-            }
-        }
-
         forks.remove(&BlockNumber(0));
 
         forks
     }
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct DifficultyBomb {
-    pub delays: BTreeMap<BlockNumber, BlockNumber>,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct BlockDifficultyBomb {
-    pub delay_to: BlockNumber,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct BlockEthashParams {
-    pub duration_limit: u64,
-    pub block_reward: U256,
-    pub homestead_formula: bool,
-    pub byzantium_adj_factor: bool,
-    pub difficulty_bomb: Option<BlockDifficultyBomb>,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum BlockEngineParams {
-    Clique { period: Duration, epoch: u64 },
-    Ethash(BlockEthashParams),
-    NoProof,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub enum ConsensusParams {
-    Clique {
-        #[serde(deserialize_with = "deserialize_period_as_duration")]
-        period: Duration,
-        epoch: u64,
-    },
-    Ethash {
-        duration_limit: u64,
-        block_reward: BTreeMap<BlockNumber, U256>,
-        #[serde(
-            default,
-            skip_serializing_if = "Option::is_none",
-            with = "::serde_with::rust::unwrap_or_skip"
-        )]
-        homestead_formula: Option<BlockNumber>,
-        #[serde(
-            default,
-            skip_serializing_if = "Option::is_none",
-            with = "::serde_with::rust::unwrap_or_skip"
-        )]
-        byzantium_adj_factor: Option<BlockNumber>,
-        #[serde(
-            default,
-            skip_serializing_if = "Option::is_none",
-            with = "::serde_with::rust::unwrap_or_skip"
-        )]
-        difficulty_bomb: Option<DifficultyBomb>,
-    },
-    NoProof,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -301,30 +235,6 @@ pub enum Precompile {
     Blake2F { gas_per_round: u64 },
 }
 
-struct DeserializePeriodAsDuration;
-
-impl<'de> de::Visitor<'de> for DeserializePeriodAsDuration {
-    type Value = Duration;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("an u64")
-    }
-
-    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        Ok(Duration::from_millis(v))
-    }
-}
-
-fn deserialize_period_as_duration<'de, D>(deserializer: D) -> Result<Duration, D::Error>
-where
-    D: de::Deserializer<'de>,
-{
-    deserializer.deserialize_any(DeserializePeriodAsDuration)
-}
-
 fn deserialize_str_as_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: de::Deserializer<'de>,
@@ -333,21 +243,17 @@ where
 }
 #[cfg(test)]
 mod tests {
+    use crate::chain::config::RINKEBY_CONFIG;
+
     use super::*;
     use hex_literal::hex;
     use maplit::*;
 
     #[test]
     fn load_chainspec() {
-        let chain_spec = ron::from_str::<ChainSpec>(include_str!("chains/rinkeby.ron")).unwrap();
-
         assert_eq!(
             ChainSpec {
                 name: "Rinkeby".into(),
-                engine: ConsensusParams::Clique {
-                    period: Duration::from_millis(15),
-                    epoch: 30_000,
-                },
                 upgrades: Upgrades {
                     homestead: Some(1150000.into()),
                     tangerine: Some(2463000.into()),
@@ -443,7 +349,7 @@ mod tests {
                     },
                 },
             },
-            chain_spec,
+            *RINKEBY_CONFIG,
         );
     }
 }

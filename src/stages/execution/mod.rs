@@ -13,6 +13,8 @@ use tracing::*;
 
 #[derive(Debug)]
 pub struct Execution {
+    pub consensus_engine: Arc<dyn Consensus>,
+    pub config: ChainSpec,
     pub batch_size: usize,
     pub prune_from: BlockNumber,
 }

@@ -32,7 +32,7 @@ where
     state: &'state mut IntraBlockState<'r, B>,
     header: &'h PartialHeader,
     revision: Revision,
-    chain_config: &'c BlockSpec,
+    chain_config: &'c BlockChainSpec,
     txn: &'t TransactionWithSender,
     address_stack: Vec<Address>,
 }
@@ -40,7 +40,7 @@ where
 pub async fn execute<B: State>(
     state: &mut IntraBlockState<'_, B>,
     header: &PartialHeader,
-    chain_config: &BlockSpec,
+    chain_config: &BlockChainSpec,
     txn: &TransactionWithSender,
     gas: u64,
 ) -> anyhow::Result<CallResult> {

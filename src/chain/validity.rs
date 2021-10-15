@@ -101,7 +101,7 @@ impl std::error::Error for ValidationError {}
 pub fn pre_validate_transaction(
     txn: &TransactionMessage,
     block_number: impl Into<BlockNumber>,
-    config: &BlockSpec,
+    config: &BlockChainSpec,
     base_fee_per_gas: Option<U256>,
 ) -> Result<(), ValidationError> {
     let rev = config.revision;
@@ -162,7 +162,7 @@ where
 fn expected_base_fee_per_gas(
     header: &BlockHeader,
     parent: &BlockHeader,
-    config: &BlockSpec,
+    config: &BlockChainSpec,
 ) -> Option<U256> {
     if config.revision >= Revision::London {
         if config.active_transitions.contains(&Revision::London) {
@@ -203,7 +203,7 @@ async fn validate_block_header<C: Consensus, S: State>(
     consensus: &C,
     header: &BlockHeader,
     state: &S,
-    config: &BlockSpec,
+    config: &BlockChainSpec,
 ) -> anyhow::Result<()> {
     if header.gas_used > header.gas_limit {
         return Err(ValidationError::GasAboveLimit {
@@ -314,7 +314,7 @@ pub async fn pre_validate_block<C: Consensus, S: State>(
     consensus: &C,
     block: &Block,
     state: &S,
-    config: &BlockSpec,
+    config: &BlockChainSpec,
 ) -> anyhow::Result<()> {
     validate_block_header(consensus, &block.header, state, config).await?;
 

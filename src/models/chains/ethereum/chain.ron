@@ -1,23 +1,5 @@
 (
     name: "Ethereum",
-    engine: Ethash(
-        duration_limit: 13,
-        block_reward: {
-            0: "0x4563918244f40000",
-            4370000: "0x29a2241af62c0000",
-            7280000: "0x1bc16d674ec80000"
-        },
-        homestead_formula: 1150000,
-        byzantium_adj_factor: 4370000,
-        difficulty_bomb: DifficultyBomb(
-            delays: {
-                4370000: 3000000,
-                7280000: 5000000,
-                9200000: 9000000,
-                12965000: 9700000,
-            },
-        ),
-    ),
     upgrades: (
         homestead: 1150000,
         tangerine: 2463000,
@@ -9117,6 +9099,6 @@
             "0x7602b46df5390e432ef1c307d4f2c9ff6d65cc97": 0,
             "0xbb9bc244d798123fde783fcc1c72d3bb8c189413": 0,
             "0x807640a13483f8ac783c557fcdf27be11ea4ac7a": 0,
-        }
+        },
     },
-)
+),

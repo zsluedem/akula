@@ -1,9 +1,5 @@
 (
     name: "Rinkeby",
-    engine: Clique(
-        period: 15,
-        epoch: 30000,
-    ),
     upgrades: (
         homestead: 1,
         tangerine: 2,
@@ -88,11 +84,11 @@
             "0x0000000000000000000000000000000000000005": Precompile(ModExp(
                 version: ModExp2565,
             ))
-        }
+        },
     },
     balances: {
         0: {
             "0x31b98d14007bdee637298086988a0bbd31184523": "0x200000000000000000000000000000000000000000000000000000000000000",
-        }
+        },
     },
-)
+),

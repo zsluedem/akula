@@ -7,6 +7,20 @@ use ethereum_types::*;
 use std::{collections::BTreeMap, fmt::Debug};
 use thiserror::Error;
 
+#[derive(Debug, PartialEq)]
+pub struct BlockDifficultyBomb {
+    pub delay_to: BlockNumber,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct BlockEthashParams {
+    pub duration_limit: u64,
+    pub block_reward: Option<U256>,
+    pub homestead_formula: bool,
+    pub byzantium_adj_factor: bool,
+    pub difficulty_bomb: Option<BlockDifficultyBomb>,
+}
+
 #[derive(Debug)]
 pub struct Ethash {
     duration_limit: u64,
@@ -14,6 +28,38 @@ pub struct Ethash {
     homestead_formula: Option<BlockNumber>,
     byzantium_adj_factor: Option<BlockNumber>,
     difficulty_bomb: Option<DifficultyBomb>,
+}
+
+impl Ethash {
+    pub fn collect_block_params(&self, block_number: impl Into<BlockNumber>) -> BlockEthashParams {
+        let block_number = block_number.into();
+        BlockEthashParams {
+            duration_limit: self.duration_limit,
+            block_reward: self
+                .block_reward
+                .range(..=block_number)
+                .next_back()
+                .map(|(_, &v)| v),
+            homestead_formula: self
+                .homestead_formula
+                .map(|transition_block| block_number >= transition_block)
+                .unwrap_or(false),
+            byzantium_adj_factor: self
+                .byzantium_adj_factor
+                .map(|transition_block| block_number >= transition_block)
+                .unwrap_or(false),
+            difficulty_bomb: self
+                .difficulty_bomb
+                .map(|difficulty_bomb| BlockDifficultyBomb {
+                    delay_to: difficulty_bomb
+                        .delays
+                        .range(..=block_number)
+                        .next_back()
+                        .map(|(_, &v)| v)
+                        .unwrap_or(BlockNumber(0)),
+                }),
+        }
+    }
 }
 
 #[derive(Debug, Error)]
@@ -29,40 +75,7 @@ impl Consensus for Ethash {
         header: &BlockHeader,
         parent: &BlockHeader,
     ) -> anyhow::Result<()> {
-        let block_params = BlockEthashParams {
-            duration_limit: self.duration_limit,
-            block_reward: {
-                let mut reward = U256::zero();
-
-                for (after, block_reward_after) in self.block_reward.iter().rev() {
-                    if header.number >= *after {
-                        reward = *block_reward_after;
-                        break;
-                    }
-                }
-
-                reward
-            },
-            homestead_formula: self
-                .homestead_formula
-                .map(|after| header.number >= after)
-                .unwrap_or(false),
-            byzantium_adj_factor: self
-                .byzantium_adj_factor
-                .map(|after| header.number >= after)
-                .unwrap_or(false),
-            difficulty_bomb: self.difficulty_bomb.map(|difficulty_bomb| {
-                let mut delay_to = BlockNumber(0);
-                for (&after, &delay_to_entry) in difficulty_bomb.delays.iter().rev() {
-                    if header.number >= after {
-                        delay_to = delay_to_entry;
-                        break;
-                    }
-                }
-
-                BlockDifficultyBomb { delay_to }
-            }),
-        };
+        let block_params = self.collect_block_params(header.number);
 
         // TODO: port Ethash PoW verification
         // let epoch_number = {header.number / ethash::epoch_length};

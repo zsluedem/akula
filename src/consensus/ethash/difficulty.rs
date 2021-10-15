@@ -1,6 +1,6 @@
+use super::BlockEthashParams;
 use crate::models::*;
 use ethereum_types::*;
-use evmodin::Revision;
 
 const MIN_DIFFICULTY: u64 = 131_072;
 
@@ -64,7 +64,10 @@ pub fn canonical_difficulty(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::chain::config::MAINNET_CONFIG;
+    use crate::{
+        chain::config::MAINNET_CONSENSUS_CONFIG,
+        consensus::{ethash::Ethash, init_consensus},
+    };
 
     #[test]
     fn difficulty_test_34() {
@@ -74,13 +77,11 @@ mod tests {
         let parent_timestamp = 0x04bdbdaf;
         let parent_has_uncles = false;
 
-        let mainnet_ethash_config = if let BlockEngineParams::Ethash(params) =
-            MAINNET_CONFIG.collect_block_spec(block_number).engine
-        {
-            params
-        } else {
-            unreachable!("mainnet is ethash")
-        };
+        let mainnet_ethash_config = init_consensus(MAINNET_CONSENSUS_CONFIG.clone())
+            .unwrap()
+            .downcast::<Ethash>()
+            .unwrap()
+            .collect_block_params(block_number);
 
         let difficulty = canonical_difficulty(
             block_number,

@@ -28,6 +28,7 @@ dependencies = [
  "console-subscriber",
  "crossterm",
  "derive_more",
+ "downcast-rs",
  "educe",
  "ethereum-interfaces",
  "ethereum-types",
@@ -547,6 +548,12 @@ checksum = "d3dd60d1080a57a05ab032377049e0591415d2b31afd7028356dbf3cc6dcb066"
 dependencies = [
  "generic-array",
 ]
+
+[[package]]
+name = "downcast-rs"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
 name = "educe"

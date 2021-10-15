@@ -1,7 +1,10 @@
 use super::validity::ValidationError;
 use crate::{
-    chain::validity::pre_validate_block, consensus::Consensus,
-    execution::processor::ExecutionProcessor, models::*, state::*,
+    chain::validity::pre_validate_block,
+    consensus::{init_consensus, Consensus},
+    execution::processor::ExecutionProcessor,
+    models::*,
+    state::*,
 };
 use anyhow::Context;
 use async_recursion::async_recursion;
@@ -11,14 +14,30 @@ use std::{collections::HashMap, convert::TryFrom};
 #[derive(Debug)]
 pub struct Blockchain<'state> {
     state: &'state mut InMemoryState,
+    consensus: Box<dyn Consensus>,
     config: ChainSpec,
     bad_blocks: HashMap<H256, ValidationError>,
     receipts: Vec<Receipt>,
 }
 
 impl<'state> Blockchain<'state> {
-    pub async fn new(
+    pub fn new(
         state: &'state mut InMemoryState,
+        consensus_spec: ConsensusSpec,
+        config: ChainSpec,
+        genesis_block: Block,
+    ) -> anyhow::Result<Blockchain<'state>> {
+        Self::new_with_engine(
+            state,
+            init_consensus(consensus_spec)?,
+            config,
+            genesis_block,
+        )
+    }
+
+    pub fn new_with_engine(
+        state: &'state mut InMemoryState,
+        consensus: Box<dyn Consensus>,
         config: ChainSpec,
         genesis_block: Block,
     ) -> anyhow::Result<Blockchain<'state>> {
@@ -29,6 +48,7 @@ impl<'state> Blockchain<'state> {
 
         Ok(Self {
             state,
+            consensus,
             config,
             bad_blocks: Default::default(),
             receipts: Default::default(),
@@ -145,7 +165,13 @@ impl<'state> Blockchain<'state> {
         };
 
         let block_spec = self.config.collect_block_spec(block.header.number);
-        let processor = ExecutionProcessor::new(self.state, &block.header, &body, &block_spec);
+        let processor = ExecutionProcessor::new(
+            self.state,
+            &*self.consensus,
+            &block.header,
+            &body,
+            &block_spec,
+        );
 
         let _ = processor.execute_and_write_block().await?;
 
