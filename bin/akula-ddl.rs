@@ -1,6 +1,7 @@
-use akula::downloader::{chain_config, opts::Opts, Downloader};
-
-use akula::kv;
+use akula::{
+    downloader::{chain_config, opts::Opts, Downloader},
+    kv,
+};
 use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
 
