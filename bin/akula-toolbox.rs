@@ -294,9 +294,8 @@ where
         let mut extracted_blocks_num = 0;
         let mut extracted_txs_num = 0;
 
-        let mut last_message = Instant::now();
-        let mut tx_count_since_message = 0;
-        loop {
+        let started_at = Instant::now();
+        let done = loop {
             let mut accum_txs = 0;
             while let Some((k, v)) = walker.try_next().await? {
                 let body = rlp::decode::<BodyForStorage>(&v)?;
@@ -318,25 +317,11 @@ where
             }
 
             if batch.is_empty() {
-                break;
+                break true;
             }
 
             extracted_blocks_num += batch.len();
             extracted_txs_num += accum_txs;
-            tx_count_since_message += accum_txs;
-            let now = Instant::now();
-            let elapsed = now - last_message;
-            if elapsed > Duration::from_secs(30) {
-                info!(
-                    "Extracted {} blocks with {} transactions, {} tx/sec",
-                    extracted_blocks_num,
-                    extracted_txs_num,
-                    tx_count_since_message as f64
-                        / (elapsed.as_secs() as f64 + (elapsed.subsec_millis() as f64 / 1000_f64))
-                );
-                last_message = Instant::now();
-                tx_count_since_message = 0;
-            }
 
             batch
                 .par_drain(..)
@@ -375,11 +360,26 @@ where
                     tx_cur.append((index, tx)).await?;
                 }
             }
-        }
+
+            let now = Instant::now();
+            let elapsed = now - started_at;
+            if elapsed > Duration::from_secs(30) {
+                info!(
+                    "Highest block {}, batch size: {} blocks with {} transactions, {} tx/sec",
+                    highest_block,
+                    extracted_blocks_num,
+                    extracted_txs_num,
+                    extracted_txs_num as f64
+                        / (elapsed.as_secs() as f64 + (elapsed.subsec_millis() as f64 / 1000_f64))
+                );
+
+                break false;
+            }
+        };
 
         Ok(ExecOutput::Progress {
             stage_progress: highest_block,
-            done: true,
+            done,
             must_commit: true,
         })
     }
