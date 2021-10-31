@@ -586,10 +586,14 @@ async fn check_table_eq(db1_path: PathBuf, db2_path: PathBuf, table: String) -> 
     let mut cur2 = txn2.cursor(&db2)?;
 
     let mut excess = 0;
-    for res in cur1
+    for (i, res) in cur1
         .iter_start::<Cow<[u8]>, Cow<[u8]>>()
         .zip_longest(cur2.iter_start::<Cow<[u8]>, Cow<[u8]>>())
+        .enumerate()
     {
+        if i % 1_000_000 == 0 {
+            info!("Checked {} entries", i);
+        }
         match res {
             itertools::EitherOrBoth::Both(a, b) => {
                 let (k1, v1) = a?;
