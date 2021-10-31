@@ -47,6 +47,7 @@ dependencies = [
  "hex",
  "hex-literal",
  "http",
+ "itertools",
  "maplit",
  "mdbx",
  "modular-bitfield",
