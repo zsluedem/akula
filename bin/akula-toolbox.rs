@@ -131,6 +131,7 @@ async fn convert_table<'db, 'tx, RwTx, Source, T>(
     table: T,
     key_to_block_num: impl Fn(&T::Key) -> Option<BlockNumber> + Send + Sync + Copy,
     value_decoder: impl Fn(Vec<u8>) -> anyhow::Result<T::Value> + Send + Sync + Copy,
+    value_encoder: impl Fn(<T::Value as TableEncode>::Encoded) -> Vec<u8> + Send + Sync + Copy,
     input: StageInput,
 ) -> anyhow::Result<ExecOutput>
 where
@@ -138,7 +139,6 @@ where
     RwTx: MutableTransaction<'db>,
     T: Table + Copy,
     T::Key: TableDecode,
-    <T::Value as TableEncode>::Encoded: Into<Vec<u8>>,
     Source: KV,
 {
     const BUFFERING_FACTOR: usize = 500_000;
@@ -173,7 +173,7 @@ where
             .map(move |(k, v)| {
                 let key = ErasedTable::<T>::decode_key(&k)?;
                 let block_num = (key_to_block_num)(&key);
-                let value = (value_decoder)(v)?.encode();
+                let value = (value_encoder)((value_decoder)(v)?.encode());
                 Ok::<_, anyhow::Error>((block_num, k, value))
             })
             .collect_into_vec(&mut converted);
@@ -183,7 +183,7 @@ where
             if let Some(block_num) = block_num {
                 highest_block = Some(block_num);
             }
-            cur.append((key, value.into())).await?;
+            cur.append((key, value)).await?;
         }
     }
 
@@ -206,6 +206,7 @@ convert_stage!(ConvertHeaders, move |db, tx, input| async move {
         akula::kv::tables::Header,
         |(block_num, _)| Some(*block_num),
         |v| Ok(rlp::decode(&v)?),
+        |b| b.to_vec(),
         input,
     )
     .await
@@ -218,6 +219,7 @@ convert_stage!(ConvertCanonical, move |db, tx, input| async move {
         akula::kv::tables::CanonicalHeader,
         |block_num| Some(*block_num),
         |v| H256::decode(&v),
+        |b| b.to_vec(),
         input,
     )
     .await
@@ -230,6 +232,7 @@ convert_stage!(ConvertHeadersTD, move |db, tx, input| async move {
         akula::kv::tables::HeadersTotalDifficulty,
         |(block_num, _)| Some(*block_num),
         |v| Ok(rlp::decode(&v)?),
+        |b| b.to_vec(),
         input,
     )
     .await
@@ -330,7 +333,7 @@ where
                     let (block_number, block_hash) =
                         ErasedTable::<tables::BlockBody>::decode_key(&k)?;
                     let key = (block_number, block_hash).encode();
-                    let value = body.encode();
+                    let value = body.encode().to_vec();
                     Ok::<_, anyhow::Error>((
                         block_number,
                         key,
@@ -338,7 +341,12 @@ where
                             value,
                             txs.into_iter()
                                 .map(|(k, v)| {
-                                    Ok((k, rlp::decode::<akula::models::Transaction>(&v)?.encode()))
+                                    Ok((
+                                        k,
+                                        rlp::decode::<akula::models::Transaction>(&v)?
+                                            .encode()
+                                            .to_vec(),
+                                    ))
                                 })
                                 .collect::<anyhow::Result<Vec<_>>>()?,
                         ),
