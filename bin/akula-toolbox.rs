@@ -405,11 +405,24 @@ where
     fn description(&self) -> &'static str {
         "Sync complete, exiting."
     }
-    async fn execute<'tx>(&self, _: &'tx mut RwTx, _: StageInput) -> anyhow::Result<ExecOutput>
+    async fn execute<'tx>(&self, _: &'tx mut RwTx, input: StageInput) -> anyhow::Result<ExecOutput>
     where
         'db: 'tx,
     {
-        std::process::exit(0)
+        let prev_stage = input
+            .previous_stage
+            .map(|(_, b)| b)
+            .unwrap_or(BlockNumber(0));
+        let last_cycle_progress = input.stage_progress.unwrap_or(BlockNumber(0));
+        Ok(if prev_stage > last_cycle_progress {
+            ExecOutput::Progress {
+                stage_progress: prev_stage,
+                done: true,
+                must_commit: true,
+            }
+        } else {
+            std::process::exit(0)
+        })
     }
     async fn unwind<'tx>(&self, _: &'tx mut RwTx, _: UnwindInput) -> anyhow::Result<()>
     where
